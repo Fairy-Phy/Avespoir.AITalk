@@ -50,12 +50,15 @@ namespace Injecter
             Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
             foreach (Assembly assembly in assemblies)
             {
-                if (assembly.GetName().Name == "AI.Framework.App")
+                /*
+                    AI.Framework.App.dllが存在しないため他のライブラリから参照できるように修正
+                 */
+                if (assembly.GetName().Name == "AI.Talk.Editor.Core")
                 {
-                    Type type = assembly.GetType("AI.Framework.AppFramework");
+                    Type type = assembly.GetType("AI.Talk.Editor.Settings.AppSettings");
                     var property = type.GetProperty("Current");
                     dynamic current = property.GetValue(type);
-                    return (string)current.AppSettings.LicenseKey;
+                    return (string) current.LicenseKey;
                 }
             }
             return null;
