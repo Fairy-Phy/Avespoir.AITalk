@@ -34,9 +34,9 @@ namespace Aitalk
             // AITalkを初期化する
             AitalkCore.Config config;
             config.VoiceDbSampleRate = VoiceSampleRate;
-            config.VoiceDbDirectory = $"{InstallDirectory}\\Voice";
+            config.VoiceDbDirectory = $"{InstallDirectory}/Voice";
             config.TimeoutMilliseconds = TimeoutMilliseconds;
-            config.LicensePath = $"{InstallDirectory}\\aitalk.lic";
+            config.LicensePath = $"{InstallDirectory}/aitalk.lic";
             config.AuthenticateCodeSeed = authenticate_code;
             config.ReservedZero = 0;
             var result = AitalkCore.Result.Success;
@@ -46,6 +46,7 @@ namespace Aitalk
             }
             catch (Exception e)
             {
+                // x86じゃないと確定でSystem.BadImageFormatExceptionが出ます
                 throw new AitalkException($"AITalkの初期化に失敗しました。", e);
             }
             if (result != AitalkCore.Result.Success)
@@ -80,7 +81,7 @@ namespace Aitalk
                 List<string> result = new List<string>();
                 try
                 {
-                    foreach (string path in Directory.GetDirectories($"{InstallDirectory}\\Lang"))
+                    foreach (string path in Directory.GetDirectories($"{InstallDirectory}/Lang"))
                     {
                         result.Add(Path.GetFileName(path));
                     }
@@ -102,7 +103,7 @@ namespace Aitalk
                 List<string> result = new List<string>();
                 try
                 {
-                    foreach (string path in Directory.GetDirectories($"{InstallDirectory}\\Voice"))
+                    foreach (string path in Directory.GetDirectories($"{InstallDirectory}/Voice"))
                     {
                         result.Add(Path.GetFileName(path));
                     }
@@ -132,7 +133,7 @@ namespace Aitalk
             result = AitalkCore.LangClear();
             if ((result == AitalkCore.Result.Success) || (result == AitalkCore.Result.NotLoaded))
             {
-                result = AitalkCore.LangLoad($"{InstallDirectory}\\Lang\\{language_name}");
+                result = AitalkCore.LangLoad($"{InstallDirectory}/Lang/{language_name}");
             }
             System.IO.Directory.SetCurrentDirectory(current_directory);
             if (result != AitalkCore.Result.Success)
@@ -405,6 +406,8 @@ namespace Aitalk
         /// <param name="shiftjis_positions">ShiftJISのバイト位置と文字位置の変換テーブル</param>
         private static void UnicodeToShiftJis(string unicode_string, out byte[] shiftjis_string, out int[] shiftjis_positions)
         {
+            // .NET Coreだと必須...?
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             // 文字位置とUTF-16上でのワード位置の変換テーブルを取得し、
             // ShiftJIS上でのバイト位置とUTF-16上でのワード位置の変換テーブルを計算する
             Encoding encoding = Encoding.GetEncoding(932);
@@ -514,6 +517,68 @@ namespace Aitalk
                 job_data.CloseEvent.Set();
             }
             return 0;
+        }
+
+        /// <summary>
+        /// 読み仮名を読み上げてPCMをストリームに出力する。
+        /// なお、ストリームへの書き込みは変換がすべて終わった後に行われる。
+        /// </summary>
+        /// <param name="kana">読み仮名</param>
+        /// <param name="pcm_stream">PCMの出力先ストリーム</param>
+        /// <param name="timeout">タイムアウト[ms]。0以下はタイムアウト無しで待ち続ける。</param>
+        public static void KanaToSpeechPCM(string kana, Stream pcm_stream, int timeout = 0) {
+            UpdateParameter();
+
+            // コールバックメソッドとの同期オブジェクトを用意する
+            SpeechJobData job_data = new SpeechJobData();
+            job_data.BufferCapacity = 176400;
+            job_data.Output = new List<byte>();
+            job_data.EventData = new List<TtsEventData>();
+            job_data.CloseEvent = new EventWaitHandle(false, EventResetMode.ManualReset);
+            GCHandle gc_handle = GCHandle.Alloc(job_data);
+            try {
+                // 変換を開始する
+                AitalkCore.JobParam job_param;
+                job_param.ModeInOut = AitalkCore.JobInOut.KanaToWave;
+                job_param.UserData = GCHandle.ToIntPtr(gc_handle);
+                AitalkCore.Result result;
+                result = AitalkCore.TextToSpeech(out int job_id, ref job_param, kana);
+                if (result != AitalkCore.Result.Success) {
+                    throw new AitalkException("音声変換が開始できませんでした。", result);
+                }
+
+                // 変換の終了を待つ
+                // timeoutで与えられた時間だけ待つ
+                bool respond;
+                respond = job_data.CloseEvent.WaitOne((0 < timeout) ? timeout : -1);
+
+                // 変換を終了する
+                result = AitalkCore.CloseSpeech(job_id);
+                if (respond == false) {
+                    throw new AitalkException("音声変換がタイムアウトしました。");
+                }
+                else if (result != AitalkCore.Result.Success) {
+                    throw new AitalkException("音声変換が正常に終了しませんでした。", result);
+                }
+            }
+            finally {
+                gc_handle.Free();
+            }
+
+            // TTSイベントをJSONに変換する
+            // 変換後の文字列にヌル終端がてら4の倍数の長さになるようパディングを施す
+            MemoryStream event_stream = new MemoryStream();
+            var serializer = new DataContractJsonSerializer(typeof(List<TtsEventData>));
+            serializer.WriteObject(event_stream, job_data.EventData);
+            int padding = 4 - ((int) event_stream.Length % 4);
+            for (int cnt = 0; cnt < padding; cnt++) {
+                event_stream.WriteByte(0x0);
+            }
+            byte[] event_json = event_stream.ToArray();
+
+            byte[] data = job_data.Output.ToArray();
+            var writer = new BinaryWriter(pcm_stream);
+            writer.Write(data);
         }
 
         /// <summary>

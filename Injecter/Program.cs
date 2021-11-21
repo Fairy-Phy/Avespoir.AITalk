@@ -12,10 +12,12 @@ namespace Injecter
                 string exe_name = args[0];
                 string process_name = Path.GetFileNameWithoutExtension(exe_name);
                 string auth_code = Injecter.GetKey(process_name);
-                Console.Out.Write(auth_code);
-                Console.Out.Flush();
+                Console.WriteLine(auth_code);
             }
-            catch (Exception) { }
+            catch (Exception error) {
+                Console.WriteLine(error);
+            }
+            Console.ReadLine();
         }
     }
 }

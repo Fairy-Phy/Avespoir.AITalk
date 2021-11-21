@@ -27,6 +27,8 @@ namespace Injecter
             Process process = voiceroid_processes[0];
 
             // プロセスに接続する
+            // ここはx86でコンパイルしないと正常に動作しない
+            // Codeer.Friendly.FriendlyOperationException
             WindowsAppFriend app = new WindowsAppFriend(process);
             WindowsAppExpander.LoadAssembly(app, typeof(Injecter).Assembly);
             dynamic injected_program = app.Type(typeof(Injecter));
