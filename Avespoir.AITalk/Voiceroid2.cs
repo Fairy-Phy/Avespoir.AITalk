@@ -109,42 +109,28 @@ namespace Avespoir.AITalk {
 		/// 生成したPCM音源をDiscord用に再変換します
 		/// </summary>
 		/// <param name="ffmpegPath">ffmpegのパス</param>
-		/// <param name="PCMStream">生成したPCMストリーム</param>
+		/// <param name="TempPath">PCM一時ファイルパス</param>
 		/// <returns></returns>
-		private MemoryStream ConvertDiscordPCM(string ffmpegPath, Stream PCMStream) {
+		private MemoryStream ConvertDiscordPCM(string ffmpegPath, string TempPath) {
 			if (string.IsNullOrWhiteSpace(ffmpegPath))
 				throw new ArgumentNullException(nameof(ffmpegPath));
-			if (PCMStream.Length == 0)
-				throw new ArgumentNullException(nameof(PCMStream));
-			PCMStream.Position = 0;
+			if (string.IsNullOrWhiteSpace(TempPath))
+				throw new ArgumentNullException(nameof(TempPath));
 
 			MemoryStream ResStream = new MemoryStream();
 
+			// stdin pipeするより早いいいいいいいいいいいいいいいいいいいい
 			using var ffmpeg = Process.Start(new ProcessStartInfo {
 				FileName = "ffmpeg",
-				Arguments = $@"-loglevel error -f s16le -ar 44100 -ac 1 -i pipe:0 -ac 2 -f s16le -ar 48000 pipe:1",
+				Arguments = $@"-loglevel error -f s16le -ar 44100 -ac 1 -i ""{TempPath}"" -ac 2 -f s16le -ar 48000 pipe:1",
 				RedirectStandardOutput = true,
-				RedirectStandardInput = true,
 				UseShellExecute = false,
 				CreateNoWindow = false
 			});
 
-			ffmpeg.StandardInput.AutoFlush = true;
-			Stream stdin = ffmpeg.StandardInput.BaseStream;
-
+			Stream stdout = ffmpeg.StandardOutput.BaseStream;
 			byte[] Buffer = new byte[1024];
 			int ReadedLength = 0;
-
-			//ffmpeg.BeginOutputReadLine();
-			do {
-				ReadedLength = PCMStream.Read(Buffer, 0, Buffer.Length);
-				stdin.Write(Buffer, 0, ReadedLength);
-			} while (ReadedLength > 0);
-			ffmpeg.StandardInput.Flush();
-			stdin.Close();
-
-			Stream stdout = ffmpeg.StandardOutput.BaseStream;
-
 			while (true) {
 				IAsyncResult AsyncResult = stdout.BeginRead(Buffer, 0, Buffer.Length, null, null);
 				AsyncResult.AsyncWaitHandle.WaitOne();
@@ -181,7 +167,17 @@ namespace Avespoir.AITalk {
 		/// <param name="ffmpegPath">ffmpegのパス、初期値でデフォルトコマンドが使用されます</param>
 		public MemoryStream KanaToDiscordPCM(SpeakParameter SpeakParam, string ffmpegPath = "ffmpeg") {
 			using MemoryStream SourceStream = KanaToPCM(SpeakParam);
-			return ConvertDiscordPCM(ffmpegPath, SourceStream);
+
+			Guid guid = Guid.NewGuid();
+			string TempPath = Path.Combine(Path.GetTempPath(), guid.ToString());
+			using (FileStream SaveTempFile = new FileStream(TempPath, FileMode.Create, FileAccess.Write))
+				SaveTempFile.Write(SourceStream.ToArray());
+
+			MemoryStream ResStream = ConvertDiscordPCM(ffmpegPath, TempPath);
+
+			File.Delete(TempPath);
+
+			return ResStream;
 		}
 
 		/// <summary>

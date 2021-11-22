@@ -29,7 +29,7 @@ namespace Avespoir.AITalk.Test {
 			using (Voiceroid2 voiceroid2 = new Voiceroid2(DllPath, Seed)) {
 				SpeakParameter speakParameter = new SpeakParameter();
 
-				speakParameter.Text = "‚±‚ñ‚É‚¿‚Í";
+				speakParameter.Text = "‚Ä‚·‚Æ‚¾‚æ";
 
 				Assert.True(voiceroid2.TextToKana(speakParameter));
 				testOutputHelper.WriteLine(speakParameter.Kana);
