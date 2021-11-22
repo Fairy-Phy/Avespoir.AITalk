@@ -14,7 +14,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Injecter", "Injecter\Inject
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Avespoir.AITalk", "Avespoir.AITalk\Avespoir.AITalk.csproj", "{AA5A0E3B-A226-4ACB-9F6A-A27B303A514E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Avespoir.AITalk.Test", "Avespoir.AITalk.Test\Avespoir.AITalk.Test.csproj", "{244D0675-96DF-4AF4-8640-3D0A8D093969}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Avespoir.AITalk.Test", "Avespoir.AITalk.Test\Avespoir.AITalk.Test.csproj", "{244D0675-96DF-4AF4-8640-3D0A8D093969}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

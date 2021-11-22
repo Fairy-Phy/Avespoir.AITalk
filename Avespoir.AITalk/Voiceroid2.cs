@@ -1,5 +1,6 @@
 ﻿using Aitalk;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -103,7 +104,85 @@ namespace Avespoir.AITalk {
 		}
 
 		// Discordで流すためには品質維持のためにも48kHz, 16bit, ステレオにする必要がある...
-		// ここはffmpegで変換するしか無いのか
+
+		/// <summary>
+		/// 生成したPCM音源をDiscord用に再変換します
+		/// </summary>
+		/// <param name="ffmpegPath">ffmpegのパス</param>
+		/// <param name="PCMStream">生成したPCMストリーム</param>
+		/// <returns></returns>
+		private MemoryStream ConvertDiscordPCM(string ffmpegPath, Stream PCMStream) {
+			if (string.IsNullOrWhiteSpace(ffmpegPath))
+				throw new ArgumentNullException(nameof(ffmpegPath));
+			if (PCMStream.Length == 0)
+				throw new ArgumentNullException(nameof(PCMStream));
+			PCMStream.Position = 0;
+
+			MemoryStream ResStream = new MemoryStream();
+
+			using var ffmpeg = Process.Start(new ProcessStartInfo {
+				FileName = "ffmpeg",
+				Arguments = $@"-loglevel error -f s16le -ar 44100 -ac 1 -i pipe:0 -ac 2 -f s16le -ar 48000 pipe:1",
+				RedirectStandardOutput = true,
+				RedirectStandardInput = true,
+				UseShellExecute = false,
+				CreateNoWindow = false
+			});
+
+			ffmpeg.StandardInput.AutoFlush = true;
+			Stream stdin = ffmpeg.StandardInput.BaseStream;
+
+			byte[] Buffer = new byte[1024];
+			int ReadedLength = 0;
+
+			//ffmpeg.BeginOutputReadLine();
+			do {
+				ReadedLength = PCMStream.Read(Buffer, 0, Buffer.Length);
+				stdin.Write(Buffer, 0, ReadedLength);
+			} while (ReadedLength > 0);
+			ffmpeg.StandardInput.Flush();
+			stdin.Close();
+
+			Stream stdout = ffmpeg.StandardOutput.BaseStream;
+
+			while (true) {
+				IAsyncResult AsyncResult = stdout.BeginRead(Buffer, 0, Buffer.Length, null, null);
+				AsyncResult.AsyncWaitHandle.WaitOne();
+				ReadedLength = stdout.EndRead(AsyncResult);
+				if (ReadedLength > 0) ResStream.Write(Buffer, 0, ReadedLength);
+				else {
+					ffmpeg.WaitForExit();
+					break;
+				}
+			}
+
+			/*ffmpeg.WaitForExit();
+
+			Stream stdout = ffmpeg.StandardOutput.BaseStream;
+
+			if (stdout.Length - stdout.Position == 0)
+				throw new Exception("ffmpegの変換ができませんでした");
+
+			do {
+				ReadedLength = stdout.Read(Buffer, 0, Buffer.Length);
+				ResStream.Write(Buffer, 0, ReadedLength);
+			} while (ReadedLength > 0);*/
+
+			return ResStream;
+		}
+
+		/// <summary>
+		/// かな文字からPCMに変換します
+		/// </summary>
+		/// <remarks>
+		/// PCMは48khz, 16bit, ステレオです
+		/// </remarks>
+		/// <param name="SpeakParam">パラメータ</param>
+		/// <param name="ffmpegPath">ffmpegのパス、初期値でデフォルトコマンドが使用されます</param>
+		public MemoryStream KanaToDiscordPCM(SpeakParameter SpeakParam, string ffmpegPath = "ffmpeg") {
+			using MemoryStream SourceStream = KanaToPCM(SpeakParam);
+			return ConvertDiscordPCM(ffmpegPath, SourceStream);
+		}
 
 		/// <summary>
 		/// かな文字からPCMに変換します

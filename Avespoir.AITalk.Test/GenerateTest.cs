@@ -5,7 +5,14 @@ using Xunit.Abstractions;
 
 namespace Avespoir.AITalk.Test {
 
-	public class UnitTest1 {
+	public class GenerateTest {
+
+		/*
+		 Aitalkがx86でしか動作しないのでAvespoir.AITalkもAvespoir.AITalk.Testも
+		 全てかx86になっていない場合絶対に動作しない
+		 もし元プログラムをx64かAny CPUで動作させたい場合Aitalkのシステムを
+		 外部に引き離す必要がある
+		 */
 
 		private readonly ITestOutputHelper testOutputHelper;
 
@@ -13,12 +20,12 @@ namespace Avespoir.AITalk.Test {
 
 		const string Seed = "ORXJC6AIWAUKDpDbH2al";
 
-		public UnitTest1(ITestOutputHelper TestOutputHelper) {
+		public GenerateTest(ITestOutputHelper TestOutputHelper) {
 			testOutputHelper = TestOutputHelper;
 		}
 
 		[Fact]
-		public void Test1() {
+		public void Test() {
 			using (Voiceroid2 voiceroid2 = new Voiceroid2(DllPath, Seed)) {
 				SpeakParameter speakParameter = new SpeakParameter();
 
@@ -27,7 +34,7 @@ namespace Avespoir.AITalk.Test {
 				Assert.True(voiceroid2.TextToKana(speakParameter));
 				testOutputHelper.WriteLine(speakParameter.Kana);
 
-				using MemoryStream resS = voiceroid2.KanaToPCM(speakParameter);
+				using MemoryStream resS = voiceroid2.KanaToDiscordPCM(speakParameter);
 
 				byte[] res = resS.ToArray();
 
