@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace Avespoir.AITalk {
 
@@ -15,7 +16,11 @@ namespace Avespoir.AITalk {
 			SymbolDictionaryPath = "";
 		 */
 
+		public static bool Inited { get; set; } = false;
+
 		private SpeakParameter DefaultSpeakParam;
+
+		private SemaphoreSlim Semaphore = new SemaphoreSlim(1);
 
 		/// <summary>
 		/// ボイスロイドの初期化処理
@@ -23,63 +28,73 @@ namespace Avespoir.AITalk {
 		/// <param name="DllDirPath">aitalked.dllのディレクトリパス、そのディレクトリパスにVoiceやらが含まれてる必要があります</param>
 		/// <param name="SeedCode">dllの認証コードシード</param>
 		public Voiceroid2(string DllDirPath, string SeedCode) {
-			if (!Directory.Exists(DllDirPath)) throw new DirectoryNotFoundException();
+			Semaphore.Wait();
 
-			AitalkWrapper.Initialize(DllDirPath, SeedCode);
+			try {
+				if (!Directory.Exists(DllDirPath)) throw new DirectoryNotFoundException();
 
-			// 基本はstanderd?
-			string language_name = AitalkWrapper.LanguageList.FirstOrDefault() ?? "";
-			AitalkWrapper.LoadLanguage(language_name);
+				AitalkWrapper.Initialize(DllDirPath, SeedCode);
 
-			// ここからの処理は各サーバー設定によって設定できるようにするか考える
+				// 基本はstanderd?
+				string language_name = AitalkWrapper.LanguageList.FirstOrDefault() ?? "";
+				AitalkWrapper.LoadLanguage(language_name);
 
-			/*
-			// フレーズ辞書が指定されていれば読み込む
-			if (File.Exists(PhraseDictionaryPath)) {
-				AitalkWrapper.ReloadPhraseDictionary(PhraseDictionaryPath);
-			}
+				// ここからの処理は各サーバー設定によって設定できるようにするか考える
 
-			// 単語辞書が指定されていれば読み込む
-			if (File.Exists(WordDictionaryPath)) {
-				AitalkWrapper.ReloadWordDictionary(WordDictionaryPath);
-			}
-
-			// 記号ポーズ辞書が指定されていれば読み込む
-			if (File.Exists(SymbolDictionaryPath)) {
-				AitalkWrapper.ReloadSymbolDictionary(SymbolDictionaryPath);
-			}
-			*/
-
-			// ボイスライブラリの読み込み //
-			// ボイスライブラリ名:VoiceDbName と 話者名:SpeakerName はどちらもボイスライブラリの名前だと思う
-
-			// 仮 確定でelse
-			string VoiceDbName = "", SpeakerName = "";
-			if (0 < VoiceDbName.Length) {
-				string voice_db_name = VoiceDbName;
-				AitalkWrapper.LoadVoice(voice_db_name);
-
-				// 話者が指定されているときはその話者を選択する
-				if (0 < SpeakerName.Length) {
-					AitalkWrapper.Parameter.CurrentSpeakerName = SpeakerName;
+				/*
+				// フレーズ辞書が指定されていれば読み込む
+				if (File.Exists(PhraseDictionaryPath)) {
+					AitalkWrapper.ReloadPhraseDictionary(PhraseDictionaryPath);
 				}
-			}
-			else {
-				// 未指定の場合、初めに見つけたものを読み込む
-				string voice_db_name = AitalkWrapper.VoiceDbList.FirstOrDefault() ?? "";
-				AitalkWrapper.LoadVoice(voice_db_name);
-			}
 
-			// 話者パラメータの初期値を記憶する
-			DefaultSpeakParam = new SpeakParameter {
-				VoiceVolume = AitalkWrapper.Parameter.VoiceVolume,
-				VoiceSpeed = AitalkWrapper.Parameter.VoiceSpeed,
-				VoicePitch = AitalkWrapper.Parameter.VoicePitch,
-				VoiceEmphasis = AitalkWrapper.Parameter.VoiceEmphasis,
-				PauseSentence = AitalkWrapper.Parameter.PauseSentence
-			};
-			if (!DefaultSpeakParam.SetPauseMiddleLong(AitalkWrapper.Parameter.PauseMiddle, AitalkWrapper.Parameter.PauseLong))
-				throw new AitalkException("初期値がおかしいです");
+				// 単語辞書が指定されていれば読み込む
+				if (File.Exists(WordDictionaryPath)) {
+					AitalkWrapper.ReloadWordDictionary(WordDictionaryPath);
+				}
+
+				// 記号ポーズ辞書が指定されていれば読み込む
+				if (File.Exists(SymbolDictionaryPath)) {
+					AitalkWrapper.ReloadSymbolDictionary(SymbolDictionaryPath);
+				}
+				*/
+
+				// ボイスライブラリの読み込み //
+				// ボイスライブラリ名:VoiceDbName と 話者名:SpeakerName はどちらもボイスライブラリの名前だと思う
+
+				// 仮 確定でelse
+				string VoiceDbName = "", SpeakerName = "";
+				if (0 < VoiceDbName.Length) {
+					string voice_db_name = VoiceDbName;
+					AitalkWrapper.LoadVoice(voice_db_name);
+
+					// 話者が指定されているときはその話者を選択する
+					if (0 < SpeakerName.Length) {
+						AitalkWrapper.Parameter.CurrentSpeakerName = SpeakerName;
+					}
+				}
+				else {
+					// 未指定の場合、初めに見つけたものを読み込む
+					string voice_db_name = AitalkWrapper.VoiceDbList.FirstOrDefault() ?? "";
+					AitalkWrapper.LoadVoice(voice_db_name);
+				}
+
+				// 話者パラメータの初期値を記憶する
+				DefaultSpeakParam = new SpeakParameter {
+					VoiceVolume = AitalkWrapper.Parameter.VoiceVolume,
+					VoiceSpeed = AitalkWrapper.Parameter.VoiceSpeed,
+					VoicePitch = AitalkWrapper.Parameter.VoicePitch,
+					VoiceEmphasis = AitalkWrapper.Parameter.VoiceEmphasis,
+					PauseSentence = AitalkWrapper.Parameter.PauseSentence
+				};
+				if (!DefaultSpeakParam.SetPauseMiddleLong(AitalkWrapper.Parameter.PauseMiddle, AitalkWrapper.Parameter.PauseLong))
+					throw new AitalkException("初期値がおかしいです");
+			}
+			catch (Exception error) {
+				throw error;
+			}
+			finally {
+				Semaphore.Release();
+			}
 		}
 
 		/// <summary>
@@ -88,6 +103,8 @@ namespace Avespoir.AITalk {
 		/// <param name="SpeakParam">パラメータ</param>
 		/// <returns><see cref="SpeakParameter.Kana"/>に結果が入り<see cref="true"/>を返します、問題が発生した場合はnullが入り<see cref="false"/>を返します</returns>
 		public bool TextToKana(SpeakParameter SpeakParam) {
+			Semaphore.Wait();
+
 			try {
 				if ((SpeakParam.Text == null) || (SpeakParam.Text.Length <= 0))
 					return false;
@@ -99,6 +116,9 @@ namespace Avespoir.AITalk {
 				return true;
 			}
 			catch (Exception) { }
+			finally {
+				Semaphore.Release();
+			}
 
 			return false;
 		}
@@ -165,19 +185,19 @@ namespace Avespoir.AITalk {
 		/// </remarks>
 		/// <param name="SpeakParam">パラメータ</param>
 		/// <param name="ffmpegPath">ffmpegのパス、初期値でデフォルトコマンドが使用されます</param>
-		public MemoryStream KanaToDiscordPCM(SpeakParameter SpeakParam, string ffmpegPath = "ffmpeg") {
-			using MemoryStream SourceStream = KanaToPCM(SpeakParam);
+		public byte[] KanaToDiscordPCM(SpeakParameter SpeakParam, string ffmpegPath = "ffmpeg") {
+			byte[] SourceBytes = KanaToPCM(SpeakParam);
 
 			Guid guid = Guid.NewGuid();
 			string TempPath = Path.Combine(Path.GetTempPath(), guid.ToString());
 			using (FileStream SaveTempFile = new FileStream(TempPath, FileMode.Create, FileAccess.Write))
-				SaveTempFile.Write(SourceStream.ToArray());
+				SaveTempFile.Write(SourceBytes);
 
-			MemoryStream ResStream = ConvertDiscordPCM(ffmpegPath, TempPath);
+			using MemoryStream ResStream = ConvertDiscordPCM(ffmpegPath, TempPath);
 
 			File.Delete(TempPath);
 
-			return ResStream;
+			return ResStream.ToArray();
 		}
 
 		/// <summary>
@@ -187,7 +207,9 @@ namespace Avespoir.AITalk {
 		/// PCMは44.1khz, 16bit, モノラルです
 		/// </remarks>
 		/// <param name="SpeakParam">パラメータ</param>
-		public MemoryStream KanaToPCM(SpeakParameter SpeakParam) {
+		public byte[] KanaToPCM(SpeakParameter SpeakParam) {
+			Semaphore.Wait();
+
 			try {
 				AitalkWrapper.Parameter.VoiceVolume =
 					SpeakParam.VoiceVolume >= 0 && SpeakParam.VoiceVolume <= 2 ? SpeakParam.VoiceVolume : DefaultSpeakParam.VoiceVolume;
@@ -213,12 +235,15 @@ namespace Avespoir.AITalk {
 					else throw new AitalkException("かな変換できませんでした");
 				else throw new ArgumentNullException(nameof(SpeakParam.Text));
 
-				MemoryStream ResStream = new MemoryStream();
+				using MemoryStream ResStream = new MemoryStream();
 				AitalkWrapper.KanaToSpeechPCM(kana, ResStream, SpeakParam.ConvertTextTimeout);
-				return ResStream;
+				return ResStream.ToArray();
 			}
 			catch (Exception) {
 				return null;
+			}
+			finally {
+				Semaphore.Release();
 			}
 		}
 

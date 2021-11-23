@@ -406,8 +406,10 @@ namespace Aitalk
         /// <param name="shiftjis_positions">ShiftJISのバイト位置と文字位置の変換テーブル</param>
         private static void UnicodeToShiftJis(string unicode_string, out byte[] shiftjis_string, out int[] shiftjis_positions)
         {
-            // .NET Coreだと必須...?
-            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            // .NET CoreだとSystem.Text.Encoding.CodePagesが必須
+            // ただこれは起動時に宣言すればいいのでここでは必要ない
+            // Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
             // 文字位置とUTF-16上でのワード位置の変換テーブルを取得し、
             // ShiftJIS上でのバイト位置とUTF-16上でのワード位置の変換テーブルを計算する
             Encoding encoding = Encoding.GetEncoding(932);

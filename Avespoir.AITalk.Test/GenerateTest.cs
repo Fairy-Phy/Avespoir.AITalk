@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 
 namespace Avespoir.AITalk.Test {
 
-	public class GenerateTest {
+	public class GenerateTest : IClassFixture<Init> {
 
 		/*
 		 Aitalk‚ªx86‚Å‚µ‚©“®ì‚µ‚È‚¢‚Ì‚ÅAvespoir.AITalk‚àAvespoir.AITalk.Test‚à
@@ -34,9 +34,7 @@ namespace Avespoir.AITalk.Test {
 				Assert.True(voiceroid2.TextToKana(speakParameter));
 				testOutputHelper.WriteLine(speakParameter.Kana);
 
-				using MemoryStream resS = voiceroid2.KanaToDiscordPCM(speakParameter);
-
-				byte[] res = resS.ToArray();
+				byte[] res = voiceroid2.KanaToDiscordPCM(speakParameter);
 
 				Guid guid = Guid.NewGuid();
 				using FileStream SaveFile = new FileStream($"./{guid}", FileMode.Create, FileAccess.Write);
