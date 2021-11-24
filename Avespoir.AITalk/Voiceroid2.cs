@@ -247,7 +247,7 @@ namespace Avespoir.AITalk {
 			}
 		}
 
-		void IDisposable.Dispose() {
+		public void Dispose() {
 			// まあ必要ない気がするが...
 			AitalkWrapper.Finish();
 		}
